@@ -1,0 +1,43 @@
+# Secrets
+.env
+.env.*
+!.env.example
+data/scripts/supabase_config.yaml
+
+# Python
+venv/
+.venv/
+vault_env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated synthetic data (recreate with data/scripts/setup_data.py)
+data/synthetic/*.csv
+
+# Frontend (Node / Next.js)
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Hugging Face model cache, if downloaded locally
+.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

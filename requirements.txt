@@ -1,0 +1,21 @@
+# Web services
+fastapi
+uvicorn[standard]
+pydantic
+httpx
+python-dotenv
+pyyaml
+
+# Database
+psycopg2-binary
+
+# AI / ML
+torch
+transformers
+numpy
+langchain-core
+langgraph
+langchain-google-genai
+
+# Data generation
+faker
