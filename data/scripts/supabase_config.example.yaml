@@ -1,0 +1,10 @@
+# Supabase credentials for the data scripts (load_transactions.py, vectorize.py).
+# Copy this file to data/scripts/supabase_config.yaml and fill in your values
+# (supabase_config.yaml is git-ignored). Use the same values as PROJECT_ID / PSWD
+# in backend/.env.
+#
+# If your password contains "@", ":", "/" or "#", or your project is outside
+# us-east-2, also export SUPABASE_DB_URL in your shell before running the scripts
+# (see docs/WINDOWS_SETUP.md); they build the connection URL from these values.
+project_id: your-supabase-project-id
+pwd: your-database-password
