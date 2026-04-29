@@ -595,12 +595,17 @@ orchestrator = Orchestrator()
 
 
 if __name__ == "__main__":
+    # Quick test from the command line (the chat UI at http://localhost:8000 is the normal way to ask):
+    #   python app/tools/orchestrator.py "How much did I spend on coffee in March 2026?" --user 6
+    import argparse
+
+    parser = argparse.ArgumentParser(description = "Ask the FinFlow orchestrator a question")
+    parser.add_argument("query", nargs = "?", default = "How much did I spend on coffee in March 2026?")
+    parser.add_argument("--user", type = int, default = 6, help = "User ID to ask as")
+    args = parser.parse_args()
+
     async def main():
-        # Test with user_id 6 as mentioned in query
-        query = "How much did I spend on coffee on March 2026?"
-        #query = "What is the monthly maintenance fee? Also, how much did I spend on coffee on November 2025?"
-        user_id = 6  # Match the user_id from the query
-        async for event in orchestrator.process_query(query, user_id):
+        async for event in orchestrator.process_query(args.query, args.user):
             print(event)
-    
+
     asyncio.run(main())

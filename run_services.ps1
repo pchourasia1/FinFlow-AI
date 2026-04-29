@@ -175,6 +175,10 @@ try {
     }
 
     Write-Host ""
+    if ($allHealthy) {
+        Write-Host "  Chat UI: http://localhost:8000" -ForegroundColor Cyan
+        Write-Host ""
+    }
     if (-not $allHealthy) {
         if ($NewWindows) {
             Write-Host "  A service failed to start; check its console window for the error." -ForegroundColor Yellow

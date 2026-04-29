@@ -2,9 +2,16 @@
     Main FastAPI application for the Agent Service.
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from app.api.routes.chat import router as chat_router
+from app.tools.orchestrator import orchestrator, _today
+
+# Chat UI page (served at "/")
+STATIC_DIR = Path(__file__).parent / "static"
 
 # FastAPI app instance
 app = FastAPI(
@@ -25,10 +32,15 @@ app.add_middleware(
 # Include the chat router
 app.include_router(chat_router)
 
-# Health check endpoint
-@app.get("/")
-async def health_check():
-    return {"service": "agent-service", "status": "running"}
+# Chat UI
+@app.get("/", include_in_schema = False)
+async def chat_ui():
+    return FileResponse(STATIC_DIR / "index.html")
+
+# Context shown in the chat UI header
+@app.get("/info")
+async def info():
+    return {"model": orchestrator.model, "today": _today()}
 
 @app.get("/health")
 async def health_check():

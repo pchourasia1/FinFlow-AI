@@ -2,7 +2,7 @@
 
 FinFlow-AI is a conversational assistant for a fictional digital bank. A user asks a question in plain English; an LLM agent decides whether it needs the user's transactions, their account balances, or the bank's policy text, calls the matching backend service, and streams back a natural-language answer.
 
-The system is a Next.js frontend plus three independent FastAPI services that talk over HTTP and share one Supabase PostgreSQL database with the pgvector extension.
+The system is a browser chat UI (served by the agent service; a fuller Next.js frontend is planned) plus three independent FastAPI services that talk over HTTP and share one Supabase PostgreSQL database with the pgvector extension.
 
 ## System overview
 
@@ -10,7 +10,8 @@ The system is a Next.js frontend plus three independent FastAPI services that ta
 
 | Component | Port | Code | Responsibility |
 |---|---|---|---|
-| Next.js frontend | 3000 | `frontend/` | Chat UI; calls the agent for chat, and the data services directly for dashboards |
+| Chat UI | 8000 | `backend/agent-service/app/static/index.html` | Chat page served at `/` by the Agent Service; no build step or Node.js needed |
+| Next.js frontend (planned) | 3000 | `frontend/` | Future dashboards; calls the agent for chat and the data services directly. Only the API client exists so far |
 | Agent Service API | 8000 | `backend/agent-service` | Chat endpoint, LangGraph orchestrator, tool execution, response streaming |
 | Vectorstore Service | 8001 | `backend/vectorstore-service` | Embeds queries and runs semantic search over policy chunks |
 | Database Service | 8002 | `backend/database-service` | Spending analytics, balances, admin statistics |
@@ -29,7 +30,9 @@ Each service is started with `uvicorn app.main:app --port <port>` from its own d
 
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/` | Chat UI (single HTML page, no external dependencies) |
 | `POST` | `/chat/stream` | Body `{query, user_id, thread_id?}`; returns a Server-Sent Events stream |
+| `GET` | `/info` | `{model, today}`: the Gemini model in use and the effective "today" date, shown in the chat UI header |
 | `GET` | `/health` | Health check |
 
 CORS allows `http://localhost:3000`.
@@ -59,6 +62,16 @@ Conversation memory uses LangGraph's in-process `MemorySaver`, keyed by `thread_
 | RAG Tool | `search_policy_documents` | `rag_tool.py` | `POST :8001/search/rag-context` |
 
 `analyze_spending` first normalizes free-text categories (e.g. "coffee") to the dataset's category names via `app/utils/category_normalizer.py`.
+
+### Chat UI
+
+`app/static/index.html` is a self-contained page (inline CSS and JavaScript, no build step) served at `/`:
+
+- Sends each question to `/chat/stream` and renders the SSE events as they arrive: a status line while tools run ("Checking spending analysis"), then the answer as Markdown.
+- Keeps one `thread_id` per conversation, so follow-ups like "and the month before that?" use the earlier context. **New chat** starts a fresh thread.
+- The **User ID** field picks which synthetic customer to chat as; changing it starts a new conversation.
+- A **How I got this** panel under each answer lists the tools used, their arguments, and the matched policy sections from the `tool_execution` event.
+- The header shows the model and "today" date from `/info`, and a dot that reflects `/health`.
 
 ### Stream events
 
@@ -142,8 +155,8 @@ data/policy/policy_doc.md ──► vectorize.py ──► policy_document
 
 | File | Used by | Contents |
 |---|---|---|
-| `backend/.env` | All three services | `GOOGLE_API_KEY`, `PROJECT_ID`, `PSWD`, optional `SUPABASE_DB_URL`, `GEMINI_MODEL`, `FINFLOW_AS_OF_DATE`, `DATABASE_SERVICE_URL`, `VECTORSTORE_SERVICE_URL` |
-| `data/scripts/supabase_config.yaml` | `load_transactions.py`, `vectorize.py` | `project_id`, `pwd` |
+| `backend/.env` (template: `backend/.env.example`) | All three services | `GOOGLE_API_KEY`, `PROJECT_ID`, `PSWD`, optional `SUPABASE_DB_URL`, `GEMINI_MODEL`, `FINFLOW_AS_OF_DATE`, `DATABASE_SERVICE_URL`, `VECTORSTORE_SERVICE_URL` |
+| `data/scripts/supabase_config.yaml` (template: `supabase_config.example.yaml`) | `load_transactions.py`, `vectorize.py` | `project_id`, `pwd` |
 | `NEXT_PUBLIC_AGENT_SERVICE_URL` | Frontend | Agent service URL (default `http://localhost:8000`) |
 
 When `SUPABASE_DB_URL` is unset, the services build a connection string for the Supabase pooler in `aws-1-us-east-2`; set it explicitly for projects in other regions. The data scripts do not read `.env`, so for them `SUPABASE_DB_URL` must be exported in the shell.
@@ -152,7 +165,7 @@ Both config files hold secrets and are excluded by `.gitignore`.
 
 ## Current state and limitations
 
-- **Frontend is partial.** `frontend/` contains the API client (`lib/api/agent.ts`, with `streamChat` and `checkAgentHealth`) and shared types (`lib/types.ts`); the UI is not built yet.
+- **Next.js frontend not built.** Chat works through the page at `http://localhost:8000`. `frontend/` holds only the API client (`lib/api/agent.ts`) and shared types (`lib/types.ts`) for a future Next.js app.
 - **Vectorstore has no CORS.** The diagram shows the frontend calling the Vectorstore Service directly, but that service does not allow browser requests from `localhost:3000` yet. The Database Service does.
 - **No authentication.** `user_id` is supplied by the client, so any caller can ask about any user.
 - **In-memory chat history.** Conversations are lost when the agent service restarts and are not shared across instances.

@@ -13,7 +13,7 @@ For how the pieces fit together, see [ARCHITECTURE.md](ARCHITECTURE.md).
 | 3. [Configuration](#3-configure-secrets) | Fill in `backend\.env` and `supabase_config.yaml` | Once |
 | 4. [Database](#4-set-up-the-database) | Create tables, generate and load data | Once (or to reset data) |
 | 5. [Run](#5-run-the-services) | `.\run_services.ps1` | Every session |
-| 6. [Verify](#6-verify) | Hit the health checks and send a chat message | Every session |
+| 6. [Verify](#6-verify) | Open http://localhost:8000 and ask a question | Every session |
 | 7. [Stop](#7-stop-the-services) | `Ctrl+C` or `.\run_services.ps1 -Stop` | Every session |
 
 ## 1. Prerequisites
@@ -61,7 +61,12 @@ You don't need to activate the venv. The launcher and the commands below call `v
 
 ## 3. Configure secrets
 
-Fill in the placeholders in two files. Both are git-ignored.
+Create the two config files from their templates, then fill in the placeholders. The copies are git-ignored; the templates are committed.
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+Copy-Item data\scripts\supabase_config.example.yaml data\scripts\supabase_config.yaml
+```
 
 **`backend\.env`** (read by all three services):
 
@@ -70,7 +75,9 @@ Fill in the placeholders in two files. Both are git-ignored.
 | `GOOGLE_API_KEY` | Google AI Studio |
 | `PROJECT_ID` | Supabase → Project Settings → General → Project ID |
 | `PSWD` | The database password you set when creating the project |
-| `SUPABASE_DB_URL` | Optional. Set it if your project is **not** in AWS `us-east-2`: Supabase → **Connect** → "Transaction pooler" URI |
+| `SUPABASE_DB_URL` | Optional. Set it if your project is **not** in AWS `us-east-2`, or your password contains `@`, `:`, `/` or `#`: Supabase → **Connect** → "Transaction pooler" URI, with those characters URL-encoded (`@` → `%40`) |
+| `GEMINI_MODEL` | Optional. Defaults to `gemini-2.5-flash-lite`; set `gemini-3.5-flash-lite` if Google says 2.5 is unavailable for your key |
+| `FINFLOW_AS_OF_DATE` | Optional. The `--as-of` date you generated data for (see step 4) |
 
 **`data\scripts\supabase_config.yaml`** (read by the data scripts): the same `project_id` and `pwd`.
 
@@ -158,6 +165,10 @@ cd backend\database-service
 Each service must start from its own folder. The agent in particular loads its prompt file by relative path.
 
 ## 6. Verify
+
+Open **http://localhost:8000** in your browser and ask a question, for example "What is my account balance?". Change **User ID** in the header to chat as a different customer.
+
+To check from PowerShell instead:
 
 ```powershell
 # Health checks

@@ -12,7 +12,7 @@ Built with FastAPI, LangGraph, Google Gemini, and RAG over pgvector. All data is
 
 | Component | Port | Role |
 |---|---|---|
-| **Next.js Frontend** | 3000 | Chat interface (in progress) |
+| **Chat UI** | 8000 | Browser chat page served by the Agent Service (a Next.js frontend on port 3000 is planned) |
 | **Agent Service** | 8000 | LangGraph orchestrator: Gemini picks a tool, calls it, and writes the answer |
 | **Vectorstore Service** | 8001 | Semantic search over policy documents (RAG) |
 | **Database Service** | 8002 | Spending analytics, balances, and admin statistics |
@@ -71,10 +71,17 @@ On Windows, create the venv from a python.org or `uv` Python rather than Anacond
 
 ### 2. Configure
 
-- **`backend/.env`:** set `GOOGLE_API_KEY`, `PROJECT_ID`, and `PSWD`. If your Supabase project is not in `us-east-2`, also set `SUPABASE_DB_URL` to the "Transaction pooler" URI from the Supabase dashboard.
+Copy the templates, then fill in your values:
+
+```bash
+cp backend/.env.example backend/.env
+cp data/scripts/supabase_config.example.yaml data/scripts/supabase_config.yaml
+```
+
+- **`backend/.env`:** set `GOOGLE_API_KEY`, `PROJECT_ID`, and `PSWD`. If your Supabase project is not in `us-east-2`, also set `SUPABASE_DB_URL` to the "Transaction pooler" URI from the Supabase dashboard. Optional: `GEMINI_MODEL` and `FINFLOW_AS_OF_DATE` (see the comments in the file).
 - **`data/scripts/supabase_config.yaml`:** set `project_id` and `pwd`.
 
-Both files are git-ignored.
+Both copies are git-ignored; only the templates are committed.
 
 ### 3. Set up the database
 
@@ -107,6 +114,14 @@ cd backend/agent-service && python -m uvicorn app.main:app --port 8000 --reload
 
 ### 5. Try it
 
+Open **http://localhost:8000** in your browser and ask a question. The chat page streams answers, keeps the conversation going across follow-up questions, and has a **How I got this** panel showing which tool was used and which policy sections matched. Change **User ID** in the header to chat as a different customer (1 to 10000).
+
+<p align="center">
+    <img src="docs/images/chat-ui.png" alt="FinFlow chat UI" width="700"/>
+</p>
+
+Or from the command line:
+
 ```bash
 curl -N -X POST http://localhost:8000/chat/stream \
   -H "Content-Type: application/json" \
@@ -121,7 +136,7 @@ Interactive API docs are at `http://localhost:8000/docs`, `:8001/docs`, and `:80
 FinFlow-AI/
 ├── backend/
 │   ├── .env                     # Service configuration (git-ignored)
-│   ├── agent-service/           # AI agent orchestration (port 8000)
+│   ├── agent-service/           # AI agent orchestration + chat UI (port 8000)
 │   │   ├── app/
 │   │   │   ├── api/routes/      # /chat/stream endpoint
 │   │   │   ├── tools/           # Orchestrator + RAG, SQL analytics, balance tools
@@ -147,7 +162,7 @@ FinFlow-AI/
 │   ├── ARCHITECTURE.md
 │   ├── WINDOWS_SETUP.md
 │   └── images/                  # Architecture and schema diagrams
-├── frontend/                    # Next.js app (API client only so far)
+├── frontend/                    # Next.js API client (planned full frontend)
 ├── requirements.txt
 ├── run_services.ps1             # Start/stop all services (Windows)
 ├── run_services.bat             # Double-click wrapper for run_services.ps1
@@ -156,7 +171,7 @@ FinFlow-AI/
 
 ## Roadmap
 
-- Chat UI in the Next.js frontend
+- Next.js frontend with dashboards (the chat page currently ships with the agent service)
 - User authentication (currently `user_id` is passed by the client)
 - Persistent conversation history
 - API gateway and Docker deployment

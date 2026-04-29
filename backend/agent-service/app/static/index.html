@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FinFlow AI</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M9 21l5-6 4 3 5-7' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --border: #e2e5ea;
+    --text: #16191f;
+    --text-2: #5b6370;
+    --accent: #0f766e;
+    --accent-hover: #0d645d;
+    --accent-soft: #e6f4f2;
+    --user-bubble: #0f766e;
+    --user-text: #ffffff;
+    --danger: #b42318;
+    --danger-soft: #fdecea;
+    --ok: #12805c;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+    --radius: 14px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216;
+      --surface: #171b21;
+      --surface-2: #1e232b;
+      --border: #2a3038;
+      --text: #e8eaee;
+      --text-2: #9aa3af;
+      --accent: #2dd4bf;
+      --accent-hover: #5eead4;
+      --accent-soft: #12322f;
+      --user-bubble: #134e4a;
+      --user-text: #ecfdf9;
+      --danger: #f97066;
+      --danger-soft: #3a1a18;
+      --ok: #32d583;
+      --shadow: none;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .logo {
+    width: 32px; height: 32px; border-radius: 8px; flex: none;
+    background: var(--accent); display: grid; place-items: center;
+  }
+  .logo svg { width: 20px; height: 20px; }
+  .brand h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  .brand p { margin: 0; font-size: 12.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-controls { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .user-field {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-2);
+  }
+  .user-field input {
+    width: 84px; padding: 6px 8px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface-2);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    font-size: 13px; font-weight: 550;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .status-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex: none;
+    background: var(--text-2);
+  }
+  .status-dot.ok { background: var(--ok); }
+  .status-dot.down { background: var(--danger); }
+
+  /* ---------- Conversation ---------- */
+  main { flex: 1; overflow-y: auto; }
+  .thread { max-width: 780px; margin: 0 auto; padding: 24px 20px 12px; }
+
+  .empty { text-align: center; padding: 6vh 0 12px; }
+  .empty h2 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.02em; }
+  .empty > p { color: var(--text-2); margin: 0 0 28px; }
+  .suggestions {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px; text-align: left;
+  }
+  .suggestion-group h3 {
+    font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-2); margin: 0 0 8px;
+  }
+  .chip {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    padding: 10px 12px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow); font-size: 14px;
+  }
+  .chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  .msg { display: flex; margin: 0 0 18px; }
+  .msg.user { justify-content: flex-end; }
+  .bubble { max-width: 85%; padding: 10px 14px; border-radius: var(--radius); overflow-wrap: anywhere; }
+  .msg.user .bubble {
+    background: var(--user-bubble); color: var(--user-text);
+    border-bottom-right-radius: 4px; white-space: pre-wrap;
+  }
+  .msg.assistant .bubble {
+    background: var(--surface); border: 1px solid var(--border);
+    border-bottom-left-radius: 4px; box-shadow: var(--shadow);
+  }
+  .msg.error .bubble { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child, .bubble ul:last-child, .bubble ol:last-child { margin-bottom: 0; }
+  .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 22px; }
+  .bubble li { margin: 2px 0; }
+  .bubble h4 { margin: 8px 0 4px; font-size: 15px; }
+  .bubble code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+
+  .status { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 14px; }
+  .typing { display: inline-flex; gap: 3px; }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: .15s; }
+  .typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .typing span { animation: none; opacity: .7; } }
+
+  details.sources {
+    margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
+    font-size: 13px; color: var(--text-2);
+  }
+  details.sources summary { cursor: pointer; user-select: none; }
+  .tool { margin-top: 8px; }
+  .tool-name { font-weight: 600; color: var(--text); }
+  .args { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .arg { background: var(--surface-2); border-radius: 6px; padding: 2px 8px; }
+  .source { margin-top: 6px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; }
+  .source b { color: var(--text); }
+  .source p { margin: 4px 0 0; }
+
+  /* ---------- Composer ---------- */
+  footer { padding: 8px 20px 18px; }
+  .composer {
+    max-width: 780px; margin: 0 auto;
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow);
+  }
+  .composer:focus-within { border-color: var(--accent); }
+  .composer textarea {
+    flex: 1; border: 0; outline: 0; resize: none; background: transparent;
+    max-height: 180px; padding: 7px 0; line-height: 1.45;
+  }
+  .send {
+    width: 38px; height: 38px; flex: none; border-radius: 10px; border: 0; cursor: pointer;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+  }
+  .send:hover { background: var(--accent-hover); }
+  .send:disabled { opacity: .4; cursor: default; }
+  .send svg { width: 18px; height: 18px; }
+  .hint { max-width: 780px; margin: 6px auto 0; font-size: 12px; color: var(--text-2); text-align: center; }
+
+  @media (max-width: 600px) {
+    header { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
+    .header-controls { margin-left: 0; width: 100%; justify-content: space-between; }
+    .thread { padding: 16px 16px 8px; }
+    footer { padding: 8px 16px 14px; }
+    .bubble { max-width: 92%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 6-8" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div style="min-width:0">
+      <h1>FinFlow AI</h1>
+      <p id="context">Your banking assistant</p>
+    </div>
+  </div>
+  <div class="header-controls">
+    <label class="user-field" title="Synthetic customer to chat as (1 to 10000)">
+      <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+      User ID
+      <input id="userId" type="number" min="1" max="10000" value="6" inputmode="numeric">
+    </label>
+    <button class="btn" id="newChat" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      New chat
+    </button>
+  </div>
+</header>
+
+<main id="scroller">
+  <div class="thread" id="thread" aria-live="polite"></div>
+</main>
+
+<footer>
+  <form class="composer" id="composer">
+    <textarea id="input" rows="1" placeholder="Ask about your balance, spending, or bank policies…" aria-label="Message"></textarea>
+    <button class="send" id="send" type="submit" aria-label="Send">
+      <svg viewBox="0 0 24 24" id="sendIcon" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </form>
+  <p class="hint">Enter to send · Shift+Enter for a new line · All data is synthetic</p>
+</footer>
+
+<template id="emptyTemplate">
+  <div class="empty">
+    <h2>How can I help with your money today?</h2>
+    <p>Ask in plain English. I can look up your accounts, analyze your spending, and answer questions about bank policies.</p>
+    <div class="suggestions">
+      <div class="suggestion-group">
+        <h3>Balances</h3>
+        <button class="chip" type="button">What is my account balance?</button>
+        <button class="chip" type="button">How much is in my savings?</button>
+      </div>
+      <div class="suggestion-group">
+        <h3>Spending</h3>
+        <button class="chip" type="button">How much did I spend on groceries last month?</button>
+        <button class="chip" type="button">Break down my spending in the last 30 days by category</button>
+      </div>
+      <div class="suggestion-group">
+        <h3>Policies</h3>
+        <button class="chip" type="button">What is the monthly maintenance fee?</button>
+        <button class="chip" type="button">How much does an international transfer cost?</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+(() => {
+  const TOOL_LABELS = {
+    analyze_spending: "Spending analysis",
+    get_account_balances: "Account balances",
+    search_policy_documents: "Policy search",
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const thread = $("thread"), scroller = $("scroller"), input = $("input");
+  const sendBtn = $("send"), userIdInput = $("userId");
+
+  let threadId = newThreadId();
+  let controller = null;   // AbortController for the in-flight request
+
+  // ---------- Helpers ----------
+  function newThreadId() {
+    return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  }
+
+  function storage(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem(key);
+      localStorage.setItem(key, value);
+    } catch { return null; }
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function inline(s) {
+    return escapeHtml(s)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
+      .replace(/(^|\W)_([^_]+)_(?=\W|$)/g, "$1<em>$2</em>");
+  }
+
+  // Minimal Markdown: paragraphs, bullet/numbered lists, headings, bold, italic, code
+  function renderMarkdown(text) {
+    const lines = text.replace(/\r/g, "").split("\n");
+    let html = "", list = null, para = [];
+    const flushPara = () => { if (para.length) { html += "<p>" + para.map(inline).join("<br>") + "</p>"; para = []; } };
+    const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+
+    for (const raw of lines) {
+      const line = raw.trimEnd();
+      let m;
+      if ((m = line.match(/^\s*[*\-•]\s+(.*)$/))) {
+        flushPara();
+        if (list !== "ul") { closeList(); html += "<ul>"; list = "ul"; }
+        html += `<li>${inline(m[1])}</li>`;
+      } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) {
+        flushPara();
+        if (list !== "ol") { closeList(); html += "<ol>"; list = "ol"; }
+        html += `<li>${inline(m[1])}</li>`;
+      } else if ((m = line.match(/^#{1,6}\s+(.*)$/))) {
+        flushPara(); closeList();
+        html += `<h4>${inline(m[1])}</h4>`;
+      } else if (!line.trim()) {
+        flushPara(); closeList();
+      } else {
+        closeList();
+        para.push(line);
+      }
+    }
+    flushPara(); closeList();
+    return html;
+  }
+
+  function scrollToBottom() {
+    scroller.scrollTop = scroller.scrollHeight;
+  }
+
+  function formatArg(key, value) {
+    if (key === "user_id") return null;   // always the selected user
+    const label = key.replace(/_/g, " ");
+    return `${label}: ${typeof value === "object" ? JSON.stringify(value) : value}`;
+  }
+
+  // ---------- Rendering ----------
+  function showEmptyState() {
+    thread.innerHTML = "";
+    thread.appendChild($("emptyTemplate").content.cloneNode(true));
+    thread.querySelectorAll(".chip").forEach((chip) =>
+      chip.addEventListener("click", () => send(chip.textContent)));
+  }
+
+  function addMessage(role, html) {
+    thread.querySelector(".empty")?.remove();
+    const msg = document.createElement("div");
+    msg.className = `msg ${role}`;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.innerHTML = html;
+    msg.appendChild(bubble);
+    thread.appendChild(msg);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function statusHtml(text) {
+    return `<div class="status"><span class="typing"><span></span><span></span><span></span></span>${escapeHtml(text)}</div>`;
+  }
+
+  function sourcesHtml(metadata) {
+    if (!metadata.length) return "";
+    let html = `<details class="sources"><summary>How I got this</summary>`;
+    for (const tool of metadata) {
+      const args = Object.entries(tool.tool_args || {})
+        .map(([k, v]) => formatArg(k, v)).filter(Boolean)
+        .map((a) => `<span class="arg">${escapeHtml(a)}</span>`).join("");
+      html += `<div class="tool"><span class="tool-name">${escapeHtml(TOOL_LABELS[tool.tool_name] || tool.tool_name)}</span>`;
+      if (args) html += `<div class="args">${args}</div>`;
+      for (const r of tool.rag_results || []) {
+        const match = typeof r.similarity_distance === "number"
+          ? ` · ${Math.round((1 - r.similarity_distance) * 100)}% match` : "";
+        // Plain-text preview: drop Markdown markers (**bold**, list dashes, --- rules)
+        const plain = (r.content || "")
+          .replace(/\*\*|__|`/g, "").replace(/^\s*[-*•]\s+/gm, "").replace(/^-{3,}\s*$/gm, "")
+          .replace(/\s+/g, " ").trim();
+        const snippet = plain.slice(0, 220) + (plain.length > 220 ? "…" : "");
+        html += `<div class="source"><b>${escapeHtml(r.title || "Policy section")}</b>${match}` +
+                `<p>${escapeHtml(snippet)}</p></div>`;
+      }
+      html += `</div>`;
+    }
+    return html + `</details>`;
+  }
+
+  function setBusy(busy) {
+    sendBtn.setAttribute("aria-label", busy ? "Stop" : "Send");
+    $("sendIcon").innerHTML = busy
+      ? '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/>'
+      : '<path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    updateSendState();
+  }
+
+  function updateSendState() {
+    sendBtn.disabled = !controller && !input.value.trim();
+  }
+
+  // ---------- Chat ----------
+  async function send(text) {
+    const query = text.trim();
+    if (!query || controller) return;
+
+    const userId = parseInt(userIdInput.value, 10);
+    if (!(userId >= 1)) {
+      userIdInput.focus();
+      return;
+    }
+
+    input.value = "";
+    autosize();
+    addMessage("user", escapeHtml(query));
+    const bubble = addMessage("assistant", statusHtml("Thinking"));
+
+    let answer = "";
+    let metadata = [];
+    let finished = false;
+    controller = new AbortController();
+    setBusy(true);
+
+    const render = () => {
+      bubble.innerHTML = renderMarkdown(answer) + sourcesHtml(metadata);
+      scrollToBottom();
+    };
+
+    const handleEvent = (event) => {
+      switch (event.type) {
+        case "tool_call": {
+          const names = (event.tools || []).map((t) => TOOL_LABELS[t] || t);
+          if (!answer) bubble.innerHTML = statusHtml(`Checking ${names.join(" and ").toLowerCase()}`);
+          break;
+        }
+        case "tool_execution":
+          metadata = metadata.concat(event.metadata || []);
+          if (!answer) bubble.innerHTML = statusHtml("Writing the answer");
+          break;
+        case "response":
+          answer += event.content || "";
+          render();
+          break;
+        case "error":
+          finished = true;
+          bubble.parentElement.className = "msg error";
+          bubble.textContent = "Something went wrong: " + (event.content || "unknown error");
+          break;
+        case "done":
+          finished = true;
+          break;
+      }
+    };
+
+    try {
+      const response = await fetch("/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, user_id: userId, thread_id: threadId }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`The agent service returned ${response.status}`);
+
+      // Server-Sent Events: "data: {json}\n\n"
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+        for (const raw of events) {
+          if (!raw.startsWith("data: ")) continue;
+          try { handleEvent(JSON.parse(raw.slice(6))); } catch (e) { console.error("Bad event", e); }
+        }
+      }
+      if (!answer && bubble.parentElement.className !== "msg error") {
+        bubble.textContent = "I couldn't come up with an answer. Try rephrasing the question.";
+      }
+    } catch (err) {
+      if (err.name === "AbortError") {
+        if (answer) render(); else bubble.innerHTML = "<em>Stopped.</em>";
+      } else {
+        bubble.parentElement.className = "msg error";
+        bubble.textContent = "Can't reach the agent service. Is it running? (" + err.message + ")";
+        checkHealth();
+      }
+    } finally {
+      controller = null;
+      setBusy(false);
+      input.focus();
+    }
+  }
+
+  function newConversation() {
+    if (controller) controller.abort();
+    threadId = newThreadId();
+    showEmptyState();
+    input.focus();
+  }
+
+  // ---------- Header info ----------
+  async function checkHealth() {
+    const dot = $("statusDot");
+    try {
+      const r = await fetch("/health");
+      dot.className = "status-dot " + (r.ok ? "ok" : "down");
+      dot.title = r.ok ? "Agent service is running" : "Agent service error";
+    } catch {
+      dot.className = "status-dot down";
+      dot.title = "Agent service is not reachable";
+    }
+  }
+
+  async function loadInfo() {
+    try {
+      const info = await (await fetch("/info")).json();
+      const today = new Date(info.today + "T00:00:00").toLocaleDateString(undefined,
+        { year: "numeric", month: "long", day: "numeric" });
+      $("context").textContent = `Data as of ${today} · ${info.model}`;
+    } catch { /* keep the default subtitle */ }
+  }
+
+  // ---------- Input ----------
+  function autosize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 180) + "px";
+    updateSendState();
+  }
+
+  $("composer").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (controller) controller.abort(); else send(input.value);
+  });
+  input.addEventListener("input", autosize);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      if (!controller) send(input.value);
+    }
+  });
+  $("newChat").addEventListener("click", newConversation);
+
+  // Switching user starts a fresh conversation (history belongs to one user)
+  userIdInput.value = storage("finflow.userId") || userIdInput.value;
+  userIdInput.addEventListener("change", () => {
+    storage("finflow.userId", userIdInput.value);
+    newConversation();
+  });
+
+  showEmptyState();
+  updateSendState();
+  checkHealth();
+  loadInfo();
+  input.focus();
+})();
+</script>
+</body>
+</html>
