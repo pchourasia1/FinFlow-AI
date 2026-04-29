@@ -182,7 +182,6 @@ Synthetic data covers one fixed year, so questions like "last month" only work i
 | `setup_data.py --as-of 2026-04-01` | Generates transactions from 2025-04-02 to 2026-04-01 |
 | `FINFLOW_AS_OF_DATE=2026-04-01` in `backend/.env` | Database Service: default date ranges (`app/config/clock.py`) |
 | | Agent Service: today's date in Gemini's system prompt, and in `/info` |
-| Chat UI header | Shows "Data as of April 1, 2026" |
 
 Leave `FINFLOW_AS_OF_DATE` unset to use the real date.
 

@@ -119,6 +119,11 @@
     box-shadow: var(--shadow); font-size: 14px;
   }
   .chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .followups { display: flex; flex-wrap: wrap; gap: 8px; margin: -6px 0 18px; }
+  .followups .chip {
+    display: inline-block; width: auto; margin: 0;
+    padding: 6px 12px; border-radius: 999px; font-size: 13px;
+  }
 
   .msg { display: flex; margin: 0 0 18px; }
   .msg.user { justify-content: flex-end; }
@@ -347,8 +352,22 @@
       chip.addEventListener("click", () => send(chip.textContent)));
   }
 
+  // After an answer: the same suggestions as the start page, as a compact row
+  function showFollowups() {
+    const row = document.createElement("div");
+    row.className = "followups";
+    $("emptyTemplate").content.querySelectorAll(".chip").forEach((c) => {
+      const chip = c.cloneNode(true);
+      chip.addEventListener("click", () => send(chip.textContent));
+      row.appendChild(chip);
+    });
+    thread.appendChild(row);
+    scrollToBottom();
+  }
+
   function addMessage(role, html) {
     thread.querySelector(".empty")?.remove();
+    thread.querySelector(".followups")?.remove();
     const msg = document.createElement("div");
     msg.className = `msg ${role}`;
     const bubble = document.createElement("div");
@@ -492,6 +511,7 @@
     } finally {
       controller = null;
       setBusy(false);
+      if (thread.querySelector(".msg")) showFollowups();
       input.focus();
     }
   }
@@ -514,15 +534,6 @@
       dot.className = "status-dot down";
       dot.title = "Agent service is not reachable";
     }
-  }
-
-  async function loadInfo() {
-    try {
-      const info = await (await fetch("/info")).json();
-      const today = new Date(info.today + "T00:00:00").toLocaleDateString(undefined,
-        { year: "numeric", month: "long", day: "numeric" });
-      $("context").textContent = `Data as of ${today} · ${info.model}`;
-    } catch { /* keep the default subtitle */ }
   }
 
   // ---------- Input ----------
@@ -555,7 +566,6 @@
   showEmptyState();
   updateSendState();
   checkHealth();
-  loadInfo();
   input.focus();
 })();
 </script>
