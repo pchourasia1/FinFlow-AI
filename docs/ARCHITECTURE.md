@@ -79,12 +79,13 @@ The file can also be run directly for a quick test: `python app/tools/orchestrat
 
 ### Tools
 
-| Tool (diagram name) | Name seen by Gemini | Wrapper | Calls |
+| Tool (diagram name) | Name seen by Gemini | HTTP client | Calls |
 |---|---|---|---|
 | SQL Analytics Tool | `analyze_spending` | `sql_analytics_tool.py` | `POST :8002/analytics/spending/` |
 | Balance Tool | `get_account_balances` | `balance_query_tool.py` | `POST :8002/analytics/balance/` |
-| RAG Tool | `search_policy_documents` | `rag_tool.py` | `POST :8001/search/rag-context` |
+| RAG Tool | `search_policy_documents` | `rag_tool.py` | `POST :8001/search/` |
 
+- The tools are `@tool`-decorated async functions in `orchestrator.py` (listed in `TOOLS`), with descriptions from `app/llm/prompts/orchestration.json`. Each returns a pair: text for Gemini, and the raw service response, which LangChain attaches to the `ToolMessage` as its `artifact` (`response_format="content_and_artifact"`). The "How I got this" metadata is built from that artifact, so each tool call makes one service request.
 - `analyze_spending` normalizes free-text categories (e.g. "coffee" → "Coffee Shops") with `app/utils/category_normalizer.py`.
 - Month breakdowns are sorted by date and labeled like "July 2026" before Gemini sees them; with raw timestamps sorted by amount, Gemini mislabeled months.
 

@@ -5,9 +5,9 @@ import asyncio
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
-from typing import TypedDict, Annotated, List, Dict, Any, Optional
+from typing import TypedDict, Annotated, List, Dict, Any, Optional, Tuple
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -58,6 +58,123 @@ def _message_text(message) -> str:
     return "".join(parts)
 
 
+# ---------- Tools ----------
+# Each tool returns (text for the LLM, raw data for the "How I got this" panel).
+# With response_format="content_and_artifact", LangChain puts the raw data on
+# ToolMessage.artifact, so each service is called once per tool call.
+
+def _parse_date(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        return None
+
+
+@tool("search_policy_documents", description=RAG_PROMPT, response_format="content_and_artifact")
+async def search_policy_documents(query: str) -> Tuple[str, List[Dict[str, Any]]]:
+    results = (await rag_tool.search_policy(query)).get("results", [])
+    if not results:
+        return "No relevant policy information found.", []
+
+    # Same format as the vectorstore's /search/rag-context
+    context = "\n---\n".join(f"**{r['title']}**\n{r['content']}\n" for r in results)
+    return context, results
+
+
+@tool("analyze_spending", description=SPENDING_PROMPT, response_format="content_and_artifact")
+async def analyze_spending(
+    user_id: int,
+    category: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    group_by: str = "category",
+    account_id: Optional[int] = None,
+    account_type: Optional[str] = None
+) -> Tuple[str, Dict[str, Any]]:
+
+    # Normalize category before calling the service
+    normalized_category = None
+    if category:
+        _, normalized_category = validate_category(category)
+
+    result = await sql_analytics_tool.analyze_spending(
+        user_id = user_id,
+        category = normalized_category,
+        start_date = _parse_date(start_date),
+        end_date = _parse_date(end_date),
+        group_by = group_by,
+        account_id = account_id,
+        account_type = account_type
+    )
+
+    summary = result.get('summary', {})
+    results = result.get('results', [])
+
+    response = f"Spending Analysis:\n"
+    response += f"Total Spending: ${summary.get('total_spending', 0):.2f}\n"
+    response += f"Total Transactions: {summary.get('total_transactions', 0)}\n\n"
+
+    if results and group_by == "month":
+        # The API sorts by amount; list months in date order with readable labels
+        # ("July 2026", not "2026-07-01T00:00:00") so the LLM doesn't mislabel them
+        response += "Breakdown by month (chronological):\n"
+        for item in sorted(results, key=lambda r: str(r.get('month', ''))):
+            try:
+                label = datetime.fromisoformat(str(item.get('month'))).strftime('%B %Y')
+            except ValueError:
+                label = item.get('month', 'N/A')
+            response += (
+                f"  {label}: ${item.get('total_spending', 0):.2f} "
+                f"({item.get('transaction_count', 0)} transactions)\n"
+            )
+    elif results:
+        response += "Breakdown:\n"
+        for item in results[:10]:  # Limit to top 10
+            if group_by == "category":
+                response += f"  {item.get('group_value', 'N/A')}: ${item.get('total_spending', 0):.2f}\n"
+            else:
+                response += f"  {item}: ${item.get('total_spending', 0):.2f}\n"
+
+    return response, result
+
+
+@tool("get_account_balances", description=BALANCE_PROMPT, response_format="content_and_artifact")
+async def get_account_balances(
+    user_id: int,
+    account_id: Optional[int] = None,
+    account_type: Optional[str] = None
+) -> Tuple[str, Dict[str, Any]]:
+
+    result = await balance_tool.get_balance(
+        user_id = user_id,
+        account_id = account_id,
+        account_type = account_type
+    )
+
+    accounts = result.get('results', [])
+    if not accounts:
+        return "No accounts found.", result
+
+    response = "Account Balances:\n"
+
+    total = 0
+    for account in accounts:
+        acc_type = account.get('type', 'N/A')
+        acc_id = account.get('account_id', 'N/A')
+        balance = account.get('balance', 0)
+        total += balance
+        response += f"  {acc_type.capitalize()} Account #{acc_id}: ${balance:,.2f}\n"
+
+    response += f"\nTotal Balance: ${total:,.2f}\n"
+
+    return response, result
+
+
+TOOLS = [search_policy_documents, analyze_spending, get_account_balances]
+
+
 class AgentState(TypedDict):
     """State for the agent"""
     messages: Annotated[List, lambda x, y: x + y] # Accumulates messages
@@ -92,142 +209,11 @@ class Orchestrator:
             api_key = os.getenv('GOOGLE_API_KEY'),
         )
 
-        # self.tools = {
-        #     "rag": rag_tool,
-        #     "sql_analytics": sql_analytics_tool(),
-        #     "balance_query": balance_query_tool(),
-        # }
-
-        self.tools = self._create_langchain_tools()
+        self.tools = TOOLS
         self.llm_with_tools = self.llm.bind_tools(self.tools)
         self.memory = MemorySaver()
         self.graph = self._build_graph()
         self.app = self.graph.compile(checkpointer = self.memory)
-
-    def _create_langchain_tools(self) -> List[StructuredTool]:
-        """Wrap current tools in LangChain StructuredTool format"""
-
-        async def rag_search(query: str) -> str:
-            context = await rag_tool.get_policy_context(query)
-            return context
-        
-        async def analyze_spending(
-            user_id: int,
-            category: Optional[str] = None,
-            start_date: Optional[datetime] = None,
-            end_date: Optional[datetime] = None,
-            group_by: str = "category",
-            account_id: Optional[int] = None,
-            account_type: Optional[str] = None
-        ) -> str:
-
-            # Normalize category before calling the tool
-            normalized_category = None
-            if category:
-                _, normalized_category = validate_category(category)
-
-
-            start_dt = None
-            end_dt = None
-            if start_date:
-                try:
-                    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                except (ValueError, AttributeError):
-                    pass
-            if end_date:
-                try:
-                    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                except (ValueError, AttributeError):
-                    pass
-
-            result = await sql_analytics_tool.analyze_spending(
-                user_id = user_id,
-                category = normalized_category,
-                start_date = start_dt,
-                end_date = end_dt,
-                group_by = group_by,
-                account_id = account_id,
-                account_type = account_type
-            )
-            
-            summary = result.get('summary', {})
-            results = result.get('results', [])
-
-            response = f"Spending Analysis:\n"
-            response += f"Total Spending: ${summary.get('total_spending', 0):.2f}\n"
-            response += f"Total Transactions: {summary.get('total_transactions', 0)}\n\n"
-
-            if results and group_by == "month":
-                # The API sorts by amount; list months in date order with readable labels
-                # ("July 2026", not "2026-07-01T00:00:00") so the LLM doesn't mislabel them
-                response += "Breakdown by month (chronological):\n"
-                for item in sorted(results, key=lambda r: str(r.get('month', ''))):
-                    try:
-                        label = datetime.fromisoformat(str(item.get('month'))).strftime('%B %Y')
-                    except ValueError:
-                        label = item.get('month', 'N/A')
-                    response += (
-                        f"  {label}: ${item.get('total_spending', 0):.2f} "
-                        f"({item.get('transaction_count', 0)} transactions)\n"
-                    )
-            elif results:
-                response += "Breakdown:\n"
-                for item in results[:10]:  # Limit to top 10
-                    if group_by == "category":
-                        response += f"  {item.get('group_value', 'N/A')}: ${item.get('total_spending', 0):.2f}\n"
-                    else:
-                        response += f"  {item}: ${item.get('total_spending', 0):.2f}\n"
-            
-            return response
-
-        async def get_balance(
-            user_id: int,
-            account_id: Optional[int] = None,
-            account_type: Optional[str] = None
-        ) -> str:
-
-            result = await balance_tool.get_balance(
-                user_id = user_id,
-                account_id = account_id,
-                account_type = account_type
-            )
-
-            accounts = result.get('results', [])
-            if not accounts:
-                return "No accounts found."
-
-            response = "Account Balances:\n"
-
-            total = 0
-            for account in accounts:
-                acc_type = account.get('type', 'N/A')
-                acc_id = account.get('account_id', 'N/A')
-                balance = account.get('balance', 0)
-                total += balance
-                response += f"  {acc_type.capitalize()} Account #{acc_id}: ${balance:,.2f}\n"
-
-            response += f"\nTotal Balance: ${total:,.2f}\n"
-
-            return response
-        
-        # Force LLM to yield structured JSON responses
-        return [
-            StructuredTool.from_function(
-                func = rag_search,
-                name = "search_policy_documents",
-                description = RAG_PROMPT
-            ),
-            StructuredTool.from_function(
-                func = analyze_spending,
-                name = "analyze_spending",
-                description = SPENDING_PROMPT
-            ),
-            StructuredTool.from_function(
-                func = get_balance,
-                name = "get_account_balances",
-                description = BALANCE_PROMPT
-            )
-        ]
 
     def _build_graph(self) -> StateGraph:
         """Build LangGraph state machine"""
@@ -298,13 +284,7 @@ class Orchestrator:
             if tool_name not in tools_requiring_user_id and 'user_id' in tool_args:
                 tool_args.pop('user_id', None)
 
-            # Find the tool
-            tool = None
-            for t in self.tools:
-                if t.name == tool_name:
-                    tool = t
-                    break
-            
+            tool = next((t for t in self.tools if t.name == tool_name), None)
             if not tool:
                 return ToolMessage(
                     content=f"Error: Tool '{tool_name}' not found.",
@@ -312,44 +292,23 @@ class Orchestrator:
                 )
 
             try:
-                # Capture metadata based on tool type
+                # Invoking with a full tool call returns a ToolMessage whose .artifact
+                # holds the tool's raw data, so nothing is fetched twice
+                message = await tool.ainvoke({
+                    "type": "tool_call", "name": tool_name, "args": tool_args, "id": tool_call_id
+                })
+
+                # Metadata for the frontend's "How I got this" panel
                 metadata = {"tool_name": tool_name, "tool_args": tool_args}
-
                 if tool_name == "analyze_spending":
-                    # NOTE: Need to modify spending_service.py to return actual SQL query
-                    # For now, just capture the parameters
                     metadata["sql_params"] = tool_args
+                elif tool_name == "search_policy_documents":
+                    metadata["rag_results"] = (message.artifact or [])[:3]    # Top 3
+                elif tool_name == "get_account_balances":
+                    metadata["balance_results"] = message.artifact
 
-                if tool_name == "search_policy_documents":
-                    from app.tools.rag_tool import rag_tool
-                    rag_results = await rag_tool.search_policy(tool_args.get("query", ""))
-                    metadata["rag_results"] = rag_results.get("results", [])[:3]    # Top 3
-
-                if tool_name == "get_account_balances":
-                    from app.tools.balance_query_tool import balance_tool
-                    balance_results = await balance_tool.get_balance(
-                        user_id = tool_args.get("user_id", None),
-                        account_id = tool_args.get("account_id", None),
-                        account_type = tool_args.get("account_type", None)
-                    )
-                    metadata["balance_results"] = balance_results
-
-
-                # Call the underlying async function directly
-                # StructuredTool wraps async functions, so we need to await the function itself
-                if asyncio.iscoroutinefunction(tool.func):
-                    result = await tool.func(**tool_args)
-                else:
-                    # For sync functions, use invoke
-                    result = tool.invoke(tool_args)
-
-                # Store metadata
                 tool_metadata.append(metadata)
-                
-                return ToolMessage(
-                    content=str(result),
-                    tool_call_id=tool_call_id
-                )
+                return message
             except Exception as e:
                 # Log the full error for debugging
                 import traceback
