@@ -36,7 +36,7 @@ Built with FastAPI microservices, a LangGraph agent on Google Gemini 3.5 Flash L
 
 When you ask a question, the agent sends it to Gemini along with today's date and your user ID. Gemini chooses one or more tools: **SQL Analytics** (spending), **Balance**, or **RAG** (policy search). The agent calls the matching service, then has Gemini turn the results into a plain-English answer, which streams back to the page.
 
-The diagram shows the target design, with a Streamlit frontend on port 8501. Today the chat page is served directly by the Agent Service on port 8000.
+The chat page is served by the Agent Service itself, so the browser talks only to port 8000. A Streamlit dashboard is planned as a separate frontend (see Roadmap).
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full request flow, API endpoints, stream events, and data model.
 

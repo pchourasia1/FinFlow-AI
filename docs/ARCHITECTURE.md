@@ -17,7 +17,7 @@ The system is a browser chat UI plus three independent FastAPI services that tal
 | Supabase PostgreSQL | n/a | `data/sql/schema.sql` | `users`, `accounts`, `transactions`, `policy_document` |
 | Google Gemini API | n/a | external | `gemini-3.5-flash-lite` chooses tools and writes answers |
 
-The diagram shows the target design, in which a Streamlit frontend on port 8501 calls the Agent Service for chat and the Database and Vectorstore services directly for dashboards. Today the chat page is served by the Agent Service itself. `frontend/` holds an older TypeScript API client that the Streamlit app will replace.
+The chat UI is a static page served by the Agent Service on port 8000, so the browser makes one kind of call, `POST /chat/stream`, and never talks to the Database or Vectorstore services directly. A Streamlit dashboard (port 8501) is planned as a separate frontend that would call those services for charts. `frontend/` holds an older TypeScript API client that it will replace.
 
 ## Life of a question
 
