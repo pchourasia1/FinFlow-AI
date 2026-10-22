@@ -24,8 +24,8 @@ from app.utils.category_normalizer import validate_category
 env_path = Path(__file__).parent.parent.parent.parent / '.env'
 load_dotenv()
 
-# Override in backend/.env with GEMINI_MODEL (e.g. if your API key can't use this model)
-DEFAULT_MODEL = 'gemini-2.5-flash-lite'
+# Override in backend/.env with GEMINI_MODEL
+DEFAULT_MODEL = 'gemini-3.5-flash-lite'
 
 
 def _today() -> str:
@@ -85,9 +85,9 @@ class Orchestrator:
         else:
             self.model = model
 
+        # No temperature: Gemini 3.x uses fixed sampling defaults and ignores it
         self.llm = ChatGoogleGenerativeAI(
             model = self.model,
-            temperature = 0.25,
             streaming = True,
             api_key = os.getenv('GOOGLE_API_KEY'),
         )

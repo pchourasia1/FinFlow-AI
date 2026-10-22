@@ -1,62 +1,62 @@
-# FinFlow: AI-Powered Digital Banking Platform (In-Progress)
+# FinFlow: AI-Powered Digital Banking Assistant
 
-A microservices-based digital banking platform with a conversational AI assistant. Users ask questions in plain English, such as "How much did I spend on groceries last month?", "What's my savings balance?" or "What's the international transfer fee?", and the assistant answers from their own account data or from the bank's policy documents.
+A conversational AI assistant for a fictional digital bank. Ask questions in plain English, such as "How much did I spend on groceries last month?", "What's my savings balance?" or "What's the monthly maintenance fee?", and FinFlow answers from your own account data or from the bank's policy documents.
 
-Built with FastAPI, LangGraph, Google Gemini, and RAG over pgvector. All data is synthetic, and the bank is fictional.
-
-## Architecture
+Built with FastAPI microservices, a LangGraph agent on Google Gemini 3.5 Flash Lite, and retrieval-augmented generation (RAG) over pgvector. All data is synthetic, and the bank is fictional.
 
 <p align="center">
-    <img src="docs/images/Architecture.png" alt="FinFlow-AI architecture" width="500"/>
+    <img src="docs/images/chat-ui.png" alt="FinFlow chat UI answering a spending breakdown and a policy question" width="720"/>
+</p>
+
+## Features
+
+- **Browser chat UI** at `http://localhost:8000`: streaming answers, follow-up questions that keep context, suggested questions, and a user selector to chat as any of 10,000 synthetic customers
+- **Transparent answers**: a **How I got this** panel under each reply shows which tool ran, with what filters, and which policy sections matched
+- **Intelligent routing**: a LangGraph agent lets Gemini pick the right tool, or several in parallel, for each question
+- **Spending analytics**: totals by category, month, merchant, or account, over any date range
+- **Balance lookups** across checking and savings accounts
+- **Policy search (RAG)**: semantic search over the bank's terms and fee schedule using `all-MiniLM-L6-v2` embeddings and pgvector
+- **Simulated "today"**: generate a year of data ending on any date and have the assistant treat that date as today, so "last month" always means something
+- **Synthetic data generation**: 10,000 users, about 20,000 accounts, and 2 million realistic transactions
+- **One-command launch on Windows and Linux**, with health checks and clean shutdown
+
+## How It Works
+
+<p align="center">
+    <img src="docs/images/Architecture.png" alt="FinFlow-AI architecture" width="480"/>
 </p>
 
 | Component | Port | Role |
 |---|---|---|
-| **Chat UI** | 8000 | Browser chat page served by the Agent Service (a Next.js frontend on port 3000 is planned) |
-| **Agent Service** | 8000 | LangGraph orchestrator: Gemini picks a tool, calls it, and writes the answer |
-| **Vectorstore Service** | 8001 | Semantic search over policy documents (RAG) |
+| **Chat UI** | 8000 | Single-page chat interface, served by the Agent Service |
+| **Agent Service** | 8000 | LangGraph orchestrator: Gemini picks tools, calls them, and writes the answer |
+| **Vectorstore Service** | 8001 | Embeds questions and searches the policy document (RAG) |
 | **Database Service** | 8002 | Spending analytics, balances, and admin statistics |
 | **Supabase PostgreSQL** | n/a | Users, accounts, transactions, and policy embeddings |
 
-The orchestrator has three tools: **SQL Analytics** (spending by category, date, merchant, or account), **Balance** (account balances), and **RAG** (policy search).
+When you ask a question, the agent sends it to Gemini along with today's date and your user ID. Gemini chooses one or more tools: **SQL Analytics** (spending), **Balance**, or **RAG** (policy search). The agent calls the matching service, then has Gemini turn the results into a plain-English answer, which streams back to the page.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the request flow, API endpoints, stream events, data model, and known limitations.
+The diagram shows the target design, with a Next.js frontend on port 3000. Today the chat page is served directly by the Agent Service on port 8000, so no Node.js is needed.
 
-## Features
-
-- **Conversational banking assistant** powered by Google Gemini 2.5 Flash Lite
-- **Intelligent query routing** with a LangGraph state machine that can call several tools in parallel
-- **Spending analytics** filtered by category, date range, account type, and merchant
-- **Balance queries** across checking and savings accounts
-- **RAG policy search** using pgvector and `all-MiniLM-L6-v2` embeddings
-- **Streaming responses** over Server-Sent Events
-- **Synthetic data generation** for 10,000+ users with realistic transaction patterns
-
-## Data Model
-
-<p align="center">
-    <img src="docs/images/Tables_Schema.png" alt="Database tables" width="700"/>
-</p>
-
-`users` have many `accounts`, which have many `transactions`. `policy_document` holds the embedded policy chunks. The full schema is in [`data/sql/schema.sql`](data/sql/schema.sql).
+See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full request flow, API endpoints, stream events, and data model.
 
 ## Tech Stack
 
 | Area | Technologies |
 |---|---|
 | Backend | Python 3.12, FastAPI, Uvicorn, httpx |
-| AI / ML | LangChain, LangGraph, Google Gemini 2.5 Flash Lite, Hugging Face Transformers, PyTorch, sentence-transformers (all-MiniLM-L6-v2) |
+| AI / ML | LangChain, LangGraph, Google Gemini 3.5 Flash Lite, Hugging Face Transformers, PyTorch, sentence-transformers (all-MiniLM-L6-v2) |
 | Database | PostgreSQL (Supabase), pgvector, psycopg2 |
-| Frontend | Next.js, TypeScript |
+| Frontend | HTML, CSS, and vanilla JavaScript (no build step); Next.js + TypeScript client planned |
 | Data | Faker, python-dotenv, PyYAML |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.12 (not Anaconda on Windows)
-- A [Supabase](https://supabase.com) project (or any PostgreSQL with pgvector)
-- A [Google Gemini API key](https://aistudio.google.com/apikey)
+- **Python 3.12.** On Windows, use python.org or [uv](https://docs.astral.sh/uv/), not Anaconda: Anaconda's old Visual C++ runtime breaks PyTorch.
+- **A [Supabase](https://supabase.com) project** (the free tier works) or any PostgreSQL with pgvector
+- **A [Google Gemini API key](https://aistudio.google.com/apikey)**
 
 ### 1. Install dependencies
 
@@ -67,111 +67,120 @@ source venv/Scripts/activate      # Windows (Git Bash); PowerShell: venv\Scripts
 pip install -r requirements.txt
 ```
 
-On Windows, create the venv from a python.org or `uv` Python rather than Anaconda; Anaconda's old Visual C++ runtime breaks PyTorch.
-
 ### 2. Configure
 
-Copy the templates, then fill in your values:
+Copy the templates and fill in your values. The copies are git-ignored.
 
 ```bash
 cp backend/.env.example backend/.env
 cp data/scripts/supabase_config.example.yaml data/scripts/supabase_config.yaml
 ```
 
-- **`backend/.env`:** set `GOOGLE_API_KEY`, `PROJECT_ID`, and `PSWD`. If your Supabase project is not in `us-east-2`, also set `SUPABASE_DB_URL` to the "Transaction pooler" URI from the Supabase dashboard. Optional: `GEMINI_MODEL` and `FINFLOW_AS_OF_DATE` (see the comments in the file).
-- **`data/scripts/supabase_config.yaml`:** set `project_id` and `pwd`.
-
-Both copies are git-ignored; only the templates are committed.
+| Setting | File | Purpose |
+|---|---|---|
+| `GOOGLE_API_KEY` | `backend/.env` | Gemini API key |
+| `PROJECT_ID`, `PSWD` | `backend/.env` | Supabase project ID and database password |
+| `SUPABASE_DB_URL` | `backend/.env` | Optional full connection string. Needed if your project isn't in `us-east-2` or your password contains `@`, `:`, `/` or `#` (URL-encode them, e.g. `@` → `%40`) |
+| `GEMINI_MODEL` | `backend/.env` | Optional; defaults to `gemini-3.5-flash-lite` |
+| `FINFLOW_AS_OF_DATE` | `backend/.env` | Optional "today" date (`YYYY-MM-DD`); must match `setup_data.py --as-of` |
+| `project_id`, `pwd` | `supabase_config.yaml` | Same Supabase values, for the data scripts |
 
 ### 3. Set up the database
 
-Run these from the project root:
+1. Paste [`data/sql/schema.sql`](data/sql/schema.sql) into the Supabase **SQL editor** and run it. This creates the four tables and enables pgvector.
+2. Generate and load the data, from the project root:
 
 ```bash
-# Create tables and enable pgvector: paste data/sql/schema.sql into the Supabase SQL editor
-
-python data/scripts/setup_data.py            # generate synthetic CSVs
-# Import data/synthetic/users.csv, then accounts.csv (Supabase table editor or psql \copy)
-python data/scripts/load_transactions.py     # load transactions
-python data/scripts/vectorize.py             # embed the policy document
+python data/scripts/setup_data.py --as-of 2026-04-01   # one year of data ending on this date
+# Import data/synthetic/users.csv, then accounts.csv (Supabase table editor, or psql \copy; see schema.sql)
+python data/scripts/load_transactions.py               # ~2M transactions via COPY
+python data/scripts/vectorize.py                       # embed the policy document
 ```
 
-### 4. Run the services
+Leave out `--as-of` to generate data ending today. If you use it, set `FINFLOW_AS_OF_DATE` to the same date. The full dataset takes about 400 MB, inside Supabase's 500 MB free tier; use `--users 2000` for a smaller one.
+
+### 4. Run
 
 | Platform | Start | Stop |
 |---|---|---|
 | **Windows** | `.\run_services.ps1` (or double-click `run_services.bat`) | `Ctrl+C`, or `.\run_services.ps1 -Stop` |
 | **Linux** | `./run_services.sh` | `Ctrl+C` |
 
-The Windows launcher starts all three services, waits for their health checks, and writes logs to `logs\`. See **[docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)** for the full Windows walkthrough and troubleshooting.
+The Windows launcher checks your setup, starts all three services, waits for their health checks, and writes logs to `logs\`. See **[docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)** for the step-by-step Windows guide and troubleshooting.
 
-To run a service by hand instead, start it from its own folder:
+### 5. Ask a question
 
-```bash
-cd backend/agent-service && python -m uvicorn app.main:app --port 8000 --reload
-# vectorstore-service: --port 8001   database-service: --port 8002
-```
+Open **http://localhost:8000** and type a question, or click one of the suggestions. Change **User ID** in the header to chat as a different customer.
 
-### 5. Try it
-
-Open **http://localhost:8000** in your browser and ask a question. The chat page streams answers, keeps the conversation going across follow-up questions, and has a **How I got this** panel showing which tool was used and which policy sections matched. Change **User ID** in the header to chat as a different customer (1 to 10000).
-
-<p align="center">
-    <img src="docs/images/chat-ui.png" alt="FinFlow chat UI" width="700"/>
-</p>
-
-Or from the command line:
+From the command line:
 
 ```bash
 curl -N -X POST http://localhost:8000/chat/stream \
   -H "Content-Type: application/json" \
   -d '{"query": "How much did I spend on coffee last month?", "user_id": 6}'
+
+# or call the orchestrator directly, from backend/agent-service:
+python app/tools/orchestrator.py "What is my account balance?" --user 6
 ```
 
 Interactive API docs are at `http://localhost:8000/docs`, `:8001/docs`, and `:8002/docs`.
+
+## Data Model
+
+<p align="center">
+    <img src="docs/images/Tables_Schema.png" alt="Database tables" width="700"/>
+</p>
+
+`users` have many `accounts`, which have many `transactions`. `policy_document` holds the policy text split into sections, each with its embedding. The full schema is in [`data/sql/schema.sql`](data/sql/schema.sql).
 
 ## Project Structure
 
 ```text
 FinFlow-AI/
 ├── backend/
-│   ├── .env                     # Service configuration (git-ignored)
-│   ├── agent-service/           # AI agent orchestration + chat UI (port 8000)
+│   ├── .env.example               # Config template (copy to .env)
+│   ├── agent-service/             # Port 8000: agent + chat UI
 │   │   ├── app/
-│   │   │   ├── api/routes/      # /chat/stream endpoint
-│   │   │   ├── tools/           # Orchestrator + RAG, SQL analytics, balance tools
-│   │   │   ├── llm/prompts/     # Tool descriptions for the LLM
-│   │   │   └── utils/           # Category normalizer
-│   │   └── tests/integration/   # Tool integration tests
-│   ├── database-service/        # Analytics, balance, and admin APIs (port 8002)
+│   │   │   ├── main.py            # /, /chat/stream, /info, /health
+│   │   │   ├── static/index.html  # Chat UI
+│   │   │   ├── api/routes/        # Streaming chat endpoint
+│   │   │   ├── tools/             # LangGraph orchestrator + spending, balance, RAG tools
+│   │   │   ├── llm/prompts/       # Tool descriptions for the LLM
+│   │   │   └── utils/             # Category normalizer
+│   │   └── tests/integration/     # Tool integration tests
+│   ├── database-service/          # Port 8002: analytics, balance, admin APIs
 │   │   └── app/
 │   │       ├── api/routes/
-│   │       ├── services/        # SQL query logic
-│   │       └── config/          # Connection pool
-│   └── vectorstore-service/     # Vector search (port 8001)
+│   │       ├── services/          # SQL query logic
+│   │       └── config/            # Connection pool, simulated clock
+│   └── vectorstore-service/       # Port 8001: policy search
 │       └── app/
 │           ├── api/routes/
-│           ├── vectorstore/     # Embeddings and similarity search
+│           ├── vectorstore/       # Embeddings and similarity search
 │           └── config/
 ├── data/
-│   ├── policy/                  # Fictional bank policy document
-│   ├── scripts/                 # Data generation, loading, and vectorization
-│   ├── sql/                     # Database schema
-│   └── synthetic/               # Generated CSVs (git-ignored)
+│   ├── policy/                    # Fictional bank policy document
+│   ├── scripts/                   # Generate, load, and vectorize data
+│   ├── sql/schema.sql             # Database schema
+│   └── synthetic/                 # Generated CSVs (git-ignored)
 ├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── WINDOWS_SETUP.md
-│   └── images/                  # Architecture and schema diagrams
-├── frontend/                    # Next.js API client (planned full frontend)
+│   ├── ARCHITECTURE.md            # How it all fits together
+│   ├── WINDOWS_SETUP.md           # Windows setup guide
+│   └── images/                    # Diagrams and screenshots
+├── frontend/lib/                  # TypeScript API client for a future Next.js app
 ├── requirements.txt
-├── run_services.ps1             # Start/stop all services (Windows)
-├── run_services.bat             # Double-click wrapper for run_services.ps1
-└── run_services.sh              # Start all services (Linux)
+├── run_services.ps1 / .bat        # Windows launcher
+└── run_services.sh                # Linux launcher
 ```
 
 ## Roadmap
 
-- Next.js frontend with dashboards (the chat page currently ships with the agent service)
-- User authentication (currently `user_id` is passed by the client)
-- Persistent conversation history
+- Next.js frontend with spending dashboards built on the `/admin` endpoints
+- User authentication (today the client chooses the `user_id`)
+- Persistent conversation history (today it lives in memory)
+- Token-by-token streaming from Gemini
 - API gateway and Docker deployment
+
+## License
+
+See [LICENSE](LICENSE).

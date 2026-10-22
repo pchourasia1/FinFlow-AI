@@ -76,7 +76,7 @@ Copy-Item data\scripts\supabase_config.example.yaml data\scripts\supabase_config
 | `PROJECT_ID` | Supabase → Project Settings → General → Project ID |
 | `PSWD` | The database password you set when creating the project |
 | `SUPABASE_DB_URL` | Optional. Set it if your project is **not** in AWS `us-east-2`, or your password contains `@`, `:`, `/` or `#`: Supabase → **Connect** → "Transaction pooler" URI, with those characters URL-encoded (`@` → `%40`) |
-| `GEMINI_MODEL` | Optional. Defaults to `gemini-2.5-flash-lite`; set `gemini-3.5-flash-lite` if Google says 2.5 is unavailable for your key |
+| `GEMINI_MODEL` | Optional. Defaults to `gemini-3.5-flash-lite` |
 | `FINFLOW_AS_OF_DATE` | Optional. The `--as-of` date you generated data for (see step 4) |
 
 **`data\scripts\supabase_config.yaml`** (read by the data scripts): the same `project_id` and `pwd`.
