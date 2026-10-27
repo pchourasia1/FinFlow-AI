@@ -36,7 +36,7 @@ Built with FastAPI microservices, a LangGraph agent on Google Gemini 3.5 Flash L
 
 When you ask a question, the agent sends it to Gemini along with today's date and your user ID. Gemini chooses one or more tools: **SQL Analytics** (spending), **Balance**, or **RAG** (policy search). The agent calls the matching service, then has Gemini turn the results into a plain-English answer, which streams back to the page.
 
-The diagram shows the target design, with a Next.js frontend on port 3000. Today the chat page is served directly by the Agent Service on port 8000, so no Node.js is needed.
+The diagram shows the target design, with a Streamlit frontend on port 8501. Today the chat page is served directly by the Agent Service on port 8000.
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full request flow, API endpoints, stream events, and data model.
 
@@ -47,7 +47,7 @@ See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full request flow, 
 | Backend | Python 3.12, FastAPI, Uvicorn, httpx |
 | AI / ML | LangChain, LangGraph, Google Gemini 3.5 Flash Lite, Hugging Face Transformers, PyTorch, sentence-transformers (all-MiniLM-L6-v2) |
 | Database | PostgreSQL (Supabase), pgvector, psycopg2 |
-| Frontend | HTML, CSS, and vanilla JavaScript (no build step); Next.js + TypeScript client planned |
+| Frontend | HTML, CSS, and vanilla JavaScript chat page (no build step); Streamlit app planned |
 | Data | Faker, python-dotenv, PyYAML |
 
 ## Getting Started
@@ -167,7 +167,7 @@ FinFlow-AI/
 │   ├── ARCHITECTURE.md            # How it all fits together
 │   ├── WINDOWS_SETUP.md           # Windows setup guide
 │   └── images/                    # Diagrams and screenshots
-├── frontend/lib/                  # TypeScript API client for a future Next.js app
+├── frontend/lib/                  # Older TypeScript API client (to be replaced by the Streamlit app)
 ├── requirements.txt
 ├── run_services.ps1 / .bat        # Windows launcher
 └── run_services.sh                # Linux launcher
@@ -175,7 +175,7 @@ FinFlow-AI/
 
 ## Roadmap
 
-- Next.js frontend with spending dashboards built on the `/admin` endpoints
+- Streamlit frontend with spending dashboards built on the `/admin` endpoints
 - User authentication (today the client chooses the `user_id`)
 - Persistent conversation history (today it lives in memory)
 - Token-by-token streaming from Gemini

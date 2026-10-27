@@ -17,7 +17,7 @@ The system is a browser chat UI plus three independent FastAPI services that tal
 | Supabase PostgreSQL | n/a | `data/sql/schema.sql` | `users`, `accounts`, `transactions`, `policy_document` |
 | Google Gemini API | n/a | external | `gemini-3.5-flash-lite` chooses tools and writes answers |
 
-The diagram shows the target design, in which a Next.js frontend on port 3000 calls the Agent Service for chat and the Database and Vectorstore services directly for dashboards. Today the chat page is served by the Agent Service itself, and `frontend/` holds only a TypeScript API client for that future app.
+The diagram shows the target design, in which a Streamlit frontend on port 8501 calls the Agent Service for chat and the Database and Vectorstore services directly for dashboards. Today the chat page is served by the Agent Service itself. `frontend/` holds an older TypeScript API client that the Streamlit app will replace.
 
 ## Life of a question
 
@@ -31,7 +31,7 @@ What happens when a user types "How much did I spend on groceries last month?":
 
 ## Chat UI
 
-`backend/agent-service/app/static/index.html` is one self-contained file (inline CSS and JavaScript, no libraries, no build step, no Node.js).
+`backend/agent-service/app/static/index.html` is one self-contained file (inline CSS and JavaScript, no libraries, no build step).
 
 | Feature | How it works |
 |---|---|
@@ -55,7 +55,7 @@ What happens when a user types "How much did I spend on groceries last month?":
 | `GET` | `/info` | `{model, today}`: the Gemini model in use and the effective "today" date |
 | `GET` | `/health` | Health check |
 
-CORS also allows `http://localhost:3000` for the planned Next.js frontend.
+CORS allows `http://localhost:3000`, left over from an earlier frontend plan. The planned Streamlit app calls the services from Python on the server, so it doesn't need CORS.
 
 ### Orchestrator
 
@@ -114,7 +114,7 @@ Each SSE message is `data: <json>`. Event types, in typical order:
 | `GET` | `/admin/geographic` | Users by state |
 | `GET` | `/admin/risk-scores` | Risk-score distribution |
 
-Business logic lives in `app/services/`. Queries are parameterized SQL over a `psycopg2` `ThreadedConnectionPool` (1 to 10 connections) in `app/config/database.py`. CORS allows `http://localhost:3000`.
+Business logic lives in `app/services/`. Queries are parameterized SQL over a `psycopg2` `ThreadedConnectionPool` (1 to 10 connections) in `app/config/database.py`. CORS allows `http://localhost:3000` (not needed by the planned Streamlit app, which calls the API server-side).
 
 **Date handling in spending queries:**
 
@@ -192,7 +192,6 @@ Leave `FINFLOW_AS_OF_DATE` unset to use the real date.
 |---|---|---|
 | `backend/.env` (template `backend/.env.example`) | All three services | `GOOGLE_API_KEY`, `PROJECT_ID`, `PSWD`; optional `SUPABASE_DB_URL`, `GEMINI_MODEL`, `FINFLOW_AS_OF_DATE`; `DATABASE_SERVICE_URL`, `VECTORSTORE_SERVICE_URL` |
 | `data/scripts/supabase_config.yaml` (template `supabase_config.example.yaml`) | `load_transactions.py`, `vectorize.py` | `project_id`, `pwd` |
-| `NEXT_PUBLIC_AGENT_SERVICE_URL` | Future Next.js frontend | Agent Service URL (default `http://localhost:8000`) |
 
 - When `SUPABASE_DB_URL` is unset, the services build a connection string for the Supabase pooler in `aws-1-us-east-2`. Set it for projects in other regions, or when the password contains characters that must be URL-encoded (`@` → `%40`).
 - The data scripts do not read `.env`, so for them `SUPABASE_DB_URL` must be exported in the shell.
@@ -214,6 +213,5 @@ Each service can also be started by hand with `python -m uvicorn app.main:app --
 - **Simulated streaming.** The final answer is generated in full, then sent in 50-character chunks rather than token by token.
 - **Duplicate backend calls.** For the RAG and balance tools, the tools step calls the backend once for the UI's metadata and again for the result.
 - **Working-directory dependency.** The agent loads `app/llm/prompts/orchestration.json` by relative path, so it must be started from `backend/agent-service`.
-- **Vectorstore has no CORS.** The planned frontend's direct calls to port 8001 would be blocked until CORS is added (the Database Service already allows it).
 - **Floating-point money.** `accounts.balance` is `float8`, which can introduce rounding errors; `transactions` uses exact `numeric`.
 - **Auto-reload in synced folders.** uvicorn's `--reload` may miss file changes in OneDrive-synced folders; restart the services after editing code.
