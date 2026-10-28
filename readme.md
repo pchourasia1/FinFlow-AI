@@ -4,6 +4,16 @@ A conversational AI assistant for a fictional digital bank. Ask questions in pla
 
 Built with FastAPI microservices, a LangGraph agent on Google Gemini 3.5 Flash Lite, and retrieval-augmented generation (RAG) over pgvector. All data is synthetic, and the bank is fictional.
 
+## Demo
+
+Watch the agent and RAG pipeline in action (YouTube):
+
+<p align="center">
+    <a href="https://youtu.be/2e6kMqwhW_A">
+        <img src="https://img.youtube.com/vi/2e6kMqwhW_A/maxresdefault.jpg" alt="FinFlow demo video: agent and RAG pipeline" width="720"/>
+    </a>
+</p>
+
 <p align="center">
     <img src="docs/images/chat-ui.png" alt="FinFlow chat UI answering a spending breakdown and a policy question" width="720"/>
 </p>
